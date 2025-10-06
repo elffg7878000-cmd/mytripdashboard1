@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="여행 관리">
+    <title>여행 관리 대시보드</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * { 
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        body { 
+            margin: 0;
+            padding: 0;
+            overscroll-behavior: none;
+        }
+        body.dark {
+            background: #1a1a1a;
+        }
+        .dark .bg-white { background: #2a2a2a !important; color: #e0e0e0; }
+        .dark .text-gray-900 { color: #e0e0e0 !important; }
+        .dark .text-gray-800 { color: #d0d0d0 !important; }
+        .dark .text-gray-500 { color: #a0a0a0 !important; }
+        .dark .border-gray-100 { border-color: #3a3a3a !important; }
+        .dark input, .dark textarea, .dark select {
+            background: #333 !important;
+            color: #e0e0e0 !important;
+            border-color: #4a4a4a !important;
+        }
+        button { cursor: pointer; user-select: none; }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-50">
+    <div id="root"></div>
+
+    <script>
+        const app = {
+            state: {
+                activeTab: 'home',
+                editingTitle: false,
+                tempTitle: '',
+                language: 'ko',
+                darkMode: false,
+                data: {
+                    title: '내 여행',
+                    startDate: '',
+                    endDate: '',
+                    photos: [],
+                    schedule: [],
+                    expenses: [],
+                    currency: 'KRW'
+                }
+            },
+
+            translations: {
+                ko: {
+                    myTrip: '내 여행', period: '기간', notSet: '미정', photos: '사진',
+                    schedule: '일정', expenses: '지출', export: '내보내기', import: '불러오기',
+                    home: '홈', photoAlbum: '사진첩', travelOverview: '여행 개요',
+                    memories: '추억 사진', addPhoto: '사진 추가', addDescription: '설명 추가...',
+                    addSchedule: '일정 추가', title: '제목', details: '상세 내용',
+                    totalExpense: '총 지출', addExpense: '지출 추가', expenseItem: '지출 항목',
+                    amount: '금액', dataImported: '데이터를 불러왔습니다!',
+                    importFailed: '파일을 불러오는데 실패했습니다.',
+                    photos_count: '장', schedule_count: '개', resetAll: '전체 초기화',
+                    resetConfirm: '모든 데이터를 삭제하시겠습니까?\n사진, 일정, 지출 내역이 모두 삭제됩니다.',
+                    resetSuccess: '모든 데이터가 초기화되었습니다.',
+                    category: '카테고리', statistics: '통계', share: '공유',
+                    darkMode: '다크모드', categoryFood: '음식', categoryAccom: '숙박',
+                    categoryTrans: '교통', categoryTour: '관광', categoryShopping: '쇼핑',
+                    categoryOther: '기타', notifications: '알림', enableNotif: '알림 켜기',
+                    shareText: '내 여행 정보를 공유합니다!'
+                },
+                th: {
+                    myTrip: 'ทริปของฉัน', period: 'ระยะเวลา', notSet: 'ยังไม่กำหนด', photos: 'รูปภาพ',
+                    schedule: 'กำหนดการ', expenses: 'รายจ่าย', export: 'ส่งออก', import: 'นำเข้า',
+                    home: 'หน้าหลัก', photoAlbum: 'อัลบั้มรูป', travelOverview: 'ภาพรวมการเดินทาง',
+                    memories: 'ภาพความทรงจำ', addPhoto: 'เพิ่มรูปภาพ', addDescription: 'เพิ่มคำอธิบาย...',
+                    addSchedule: 'เพิ่มกำหนดการ', title: 'หัวข้อ', details: 'รายละเอียด',
+                    totalExpense: 'ค่าใช้จ่ายรวม', addExpense: 'เพิ่มรายจ่าย', expenseItem: 'รายการค่าใช้จ่าย',
+                    amount: 'จำนวนเงิน', dataImported: 'นำเข้าข้อมูลสำเร็จ!',
+                    importFailed: 'นำเข้าไฟล์ไม่สำเร็จ',
+                    photos_count: 'ภาพ', schedule_count: 'รายการ', resetAll: 'รีเซ็ตทั้งหมด',
+                    resetConfirm: 'คุณต้องการลบข้อมูลทั้งหมดหรือไม่?\nรูปภาพ กำหนดการ และรายจ่ายทั้งหมดจะถูกลบ',
+                    resetSuccess: 'ลบข้อมูลทั้งหมดเรียบร้อยแล้ว',
+                    category: 'หมวดหมู่', statistics: 'สถิติ', share: 'แชร์',
+                    darkMode: 'โหมดมืด', categoryFood: 'อาหาร', categoryAccom: 'ที่พัก',
+                    categoryTrans: 'การเดินทาง', categoryTour: 'ท่องเที่ยว', categoryShopping: 'ช้อปปิ้ง',
+                    categoryOther: 'อื่นๆ', notifications: 'การแจ้งเตือน', enableNotif: 'เปิดการแจ้งเตือน',
+                    shareText: 'แบ่งปันข้อมูลการเดินทางของฉัน!'
+                }
+            },
+
+            categories: [
+                { id: 'food', icon: '🍔', color: '#ef4444' },
+                { id: 'accommodation', icon: '🏨', color: '#f59e0b' },
+                { id: 'transport', icon: '🚗', color: '#3b82f6' },
+                { id: 'tourism', icon: '🎭', color: '#8b5cf6' },
+                { id: 'shopping', icon: '🛍️', color: '#ec4899' },
+                { id: 'other', icon: '💰', color: '#6b7280' }
+            ],
+
+            currencies: [
+                { code: 'KRW', name: '원 (Won)' },
+                { code: 'THB', name: 'บาท (Baht)' },
+                { code: 'VND', name: '동 (Dong)' },
+                { code: 'USD', name: 'Dollar' },
+                { code: 'EUR', name: 'Euro' },
+                { code: 'JPY', name: '円 (Yen)' },
+                { code: 'CNY', name: '元 (Yuan)' }
+            ],
+
+            t(key) {
+                return this.translations[this.state.language][key] || key;
+            },
+
+            init() {
+                this.loadData();
+                this.requestNotificationPermission();
+                this.render();
+            },
+
+            loadData() {
+                try {
+                    const saved = localStorage.getItem('travelData');
+                    if (saved) this.state.data = JSON.parse(saved);
+                    
+                    const savedLang = localStorage.getItem('travelLanguage');
+                    if (savedLang) this.state.language = savedLang;
+
+                    const savedDark = localStorage.getItem('darkMode');
+                    if (savedDark === 'true') {
+                        this.state.darkMode = true;
+                        document.body.classList.add('dark');
+                    }
+                } catch (e) {
+                    console.error('Load error:', e);
+                }
+            },
+
+            saveData() {
+                try {
+                    this.sortScheduleAndExpenses();
+                    localStorage.setItem('travelData', JSON.stringify(this.state.data));
+                    localStorage.setItem('travelLanguage', this.state.language);
+                    localStorage.setItem('darkMode', this.state.darkMode);
+                } catch (e) {
+                    console.error('Save error:', e);
+                }
+            },
+
+            sortScheduleAndExpenses() {
+                this.state.data.schedule.sort((a, b) => 
+                    new Date(`${a.date || '9999-12-31'} ${a.time || '23:59'}`) - 
+                    new Date(`${b.date || '9999-12-31'} ${b.time || '23:59'}`)
+                );
+                this.state.data.expenses.sort((a, b) => 
+                    new Date(`${a.date || '9999-12-31'} ${a.time || '23:59'}`) - 
+                    new Date(`${b.date || '9999-12-31'} ${b.time || '23:59'}`)
+                );
+            },
+
+            compressImage(file, callback) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        const MAX_WIDTH = 1200;
+                        const MAX_HEIGHT = 1200;
+                        let width = img.width;
+                        let height = img.height;
+
+                        if (width > height) {
+                            if (width > MAX_WIDTH) {
+                                height *= MAX_WIDTH / width;
+                                width = MAX_WIDTH;
+                            }
+                        } else {
+                            if (height > MAX_HEIGHT) {
+                                width *= MAX_HEIGHT / height;
+                                height = MAX_HEIGHT;
+                            }
+                        }
+
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+                        
+                        callback(canvas.toDataURL('image/jpeg', 0.8));
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            },
+
+            render() {
+                const root = document.getElementById('root');
+                root.innerHTML = `
+                    <div class="max-w-md mx-auto bg-white shadow-lg min-h-screen flex flex-col ${this.state.darkMode ? 'dark' : ''}">
+                        ${this.renderHeader()}
+                        ${this.renderTabs()}
+                        <div class="flex-1 overflow-y-auto p-4">
+                            ${this.renderContent()}
+                        </div>
+                    </div>
+                `;
+            },
+
+            renderHeader() {
+                return `
+                    <div class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-4">
+                        <div class="flex justify-between items-center mb-2">
+                            <div class="flex-1">
+                                ${this.state.editingTitle ? `
+                                    <div class="flex items-center gap-2">
+                                        <input id="titleInput" type="text" value="${this.state.tempTitle}" class="flex-1 px-2 py-1 rounded text-gray-900">
+                                        <button onclick="app.saveTitle()" class="p-1 bg-white rounded text-blue-600">💾</button>
+                                    </div>
+                                ` : `
+                                    <div class="flex items-center gap-2">
+                                        <h1 class="text-2xl font-bold">${this.state.data.title}</h1>
+                                        <button onclick="app.editTitle()" class="p-1">✏️</button>
+                                    </div>
+                                `}
+                            </div>
+                            <div class="flex gap-2">
+                                <button onclick="app.toggleDarkMode()" class="px-2 py-1 bg-white bg-opacity-20 rounded-lg text-sm">
+                                    ${this.state.darkMode ? '☀️' : '🌙'}
+                                </button>
+                                <button onclick="app.toggleLanguage()" class="px-2 py-1 bg-white bg-opacity-20 rounded-lg text-sm">
+                                    🌐 ${this.state.language === 'ko' ? 'TH' : 'KO'}
+                                </button>
+                            </div>
+                        </div>
+                        <div class="flex gap-2 text-sm">
+                            <input id="startDate" type="date" value="${this.state.data.startDate}" onchange="app.updateDate('startDate', this.value)" class="flex-1 px-2 py-1 rounded text-gray-900">
+                            <span class="self-center">~</span>
+                            <input id="endDate" type="date" value="${this.state.data.endDate}" onchange="app.updateDate('endDate', this.value)" class="flex-1 px-2 py-1 rounded text-gray-900">
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 mt-3">
+                            <button onclick="app.exportData()" class="bg-white text-blue-600 px-3 py-2 rounded-lg text-sm font-medium">
+                                ⬇️ ${this.t('export')}
+                            </button>
+                            <label class="bg-white text-blue-600 px-3 py-2 rounded-lg text-sm font-medium text-center cursor-pointer">
+                                ⬆️ ${this.t('import')}
+                                <input type="file" accept=".json" onchange="app.importData(event)" class="hidden">
+                            </label>
+                            <button onclick="app.shareTrip()" class="bg-white text-blue-600 px-3 py-2 rounded-lg text-sm font-medium col-span-2">
+                                📤 ${this.t('share')}
+                            </button>
+                        </div>
+                    </div>
+                `;
+            },
+
+            renderTabs() {
+                const tabs = [
+                    { id: 'home', icon: '🏠', label: this.t('home') },
+                    { id: 'photos', icon: '📷', label: this.t('photoAlbum') },
+                    { id: 'schedule', icon: '📅', label: this.t('schedule') },
+                    { id: 'expenses', icon: '💰', label: this.t('expenses') },
+                    { id: 'stats', icon: '📊', label: this.t('statistics') }
+                ];
+
+                return `
+                    <div class="flex border-b bg-white overflow-x-auto">
+                        ${tabs.map(tab => `
+                            <button 
+                                onclick="app.switchTab('${tab.id}')"
+                                class="flex-1 min-w-fit py-3 px-2 flex flex-col items-center gap-1 ${
+                                    this.state.activeTab === tab.id ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500'
+                                }">
+                                <span class="text-xl">${tab.icon}</span>
+                                <span class="text-xs font-medium whitespace-nowrap">${tab.label}</span>
+                            </button>
+                        `).join('')}
+                    </div>
+                `;
+            },
+
+            renderContent() {
+                switch(this.state.activeTab) {
+                    case 'home': return this.renderHome();
+                    case 'photos': return this.renderPhotos();
+                    case 'schedule': return this.renderSchedule();
+                    case 'expenses': return this.renderExpenses();
+                    case 'stats': return this.renderStats();
+                    default: return '';
+                }
+            },
+
+            renderHome() {
+                const total = this.state.data.expenses.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
+                return `
+                    <div class="space-y-4">
+                        <div class="bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl p-6 text-white shadow-lg">
+                            <h2 class="text-xl font-bold mb-2">${this.t('travelOverview')}</h2>
+                            <div class="space-y-2 text-sm">
+                                <p>${this.t('period')}: ${this.state.data.startDate || this.t('notSet')} ~ ${this.state.data.endDate || this.t('notSet')}</p>
+                                <p>${this.t('photos')}: ${this.state.data.photos.length}${this.t('photos_count')}</p>
+                                <p>${this.t('schedule')}: ${this.state.data.schedule.length}${this.t('schedule_count')}</p>
+                                <p>${this.t('expenses')}: ${total.toLocaleString()} ${this.state.data.currency}</p>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div class="bg-white rounded-lg p-4 shadow border border-gray-100">
+                                <p class="text-4xl mb-2">📷</p>
+                                <p class="text-2xl font-bold text-gray-800">${this.state.data.photos.length}</p>
+                                <p class="text-xs text-gray-500">${this.t('memories')}</p>
+                            </div>
+                            <div class="bg-white rounded-lg p-4 shadow border border-gray-100">
+                                <p class="text-4xl mb-2">📅</p>
+                                <p class="text-2xl font-bold text-gray-800">${this.state.data.schedule.length}</p>
+                                <p class="text-xs text-gray-500">${this.t('schedule')}</p>
+                            </div>
+                        </div>
+                        <button onclick="app.resetAll()" class="w-full bg-red-500 text-white py-3 rounded-lg font-medium hover:bg-red-600">
+                            🗑️ ${this.t('resetAll')}
+                        </button>
+                    </div>
+                `;
+            },
+
+            renderPhotos() {
+                return `
+                    <div class="space-y-4">
+                        <label class="block w-full bg-blue-600 text-white py-3 rounded-lg text-center font-medium cursor-pointer">
+                            ➕ ${this.t('addPhoto')}
+                            <input type="file" multiple accept="image/*" onchange="app.addPhotos(event)" class="hidden">
+                        </label>
+                        <div class="grid grid-cols-2 gap-3">
+                            ${this.state.data.photos.map((photo, idx) => `
+                                <div class="relative bg-white rounded-lg overflow-hidden shadow border border-gray-100">
+                                    <img src="${photo.url}" class="w-full h-40 object-cover">
+                                    <button onclick="app.deletePhoto(${idx})" class="absolute top-2 right-2 bg-red-500 text-white w-6 h-6 rounded-full">✕</button>
+                                    <div class="p-2">
+                                        <textarea onblur="app.updatePhotoDesc(${idx}, this.value)" class="w-full text-sm border rounded p-1 resize-none" rows="2" placeholder="${this.t('addDescription')}">${photo.description}</textarea>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            },
+
+            renderSchedule() {
+                return `
+                    <div class="space-y-3">
+                        <button onclick="app.addSchedule()" class="w-full bg-blue-600 text-white py-3 rounded-lg font-medium">
+                            ➕ ${this.t('addSchedule')}
+                        </button>
+                        ${this.state.data.schedule.map((item, idx) => `
+                            <div class="bg-white rounded-lg p-4 shadow border border-gray-100">
+                                <div class="flex justify-between mb-3">
+                                    <div class="flex-1 grid grid-cols-2 gap-2">
+                                        <input type="date" value="${item.date}" onblur="app.updateSchedule(${idx}, 'date', this.value)" class="border rounded px-2 py-1 text-sm">
+                                        <input type="time" value="${item.time}" onblur="app.updateSchedule(${idx}, 'time', this.value)" class="border rounded px-2 py-1 text-sm">
+                                    </div>
+                                    <button onclick="app.deleteSchedule(${idx})" class="text-red-500 ml-2">✕</button>
+                                </div>
+                                <input type="text" value="${item.title}" onblur="app.updateSchedule(${idx}, 'title', this.value)" placeholder="${this.t('title')}" class="w-full border rounded px-3 py-2 mb-2">
+                                <textarea onblur="app.updateSchedule(${idx}, 'description', this.value)" placeholder="${this.t('details')}" class="w-full border rounded px-3 py-2 text-sm resize-none" rows="2">${item.description || ''}</textarea>
+                                ${item.date && item.time ? `
+                                    <button onclick="app.scheduleNotification('${item.title}', '${item.date}', '${item.time}')" class="mt-2 text-xs text-blue-600">
+                                        🔔 ${this.t('notifications')}
+                                    </button>
+                                ` : ''}
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            },
+
+            renderExpenses() {
+                const total = this.state.data.expenses.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
+
+                return `
+                    <div class="space-y-3">
+                        <div class="bg-gradient-to-r from-green-500 to-emerald-600 rounded-lg p-4 text-white shadow-lg">
+                            <div class="flex justify-between items-center mb-2">
+                                <p class="text-sm">${this.t('totalExpense')}</p>
+                                <select onchange="app.updateCurrency(this.value)" class="bg-white text-gray-900 px-2 py-1 rounded text-sm">
+                                    ${this.currencies.map(c => `
+                                        <option value="${c.code}" ${c.code === this.state.data.currency ? 'selected' : ''}>${c.code}</option>
+                                    `).join('')}
+                                </select>
+                            </div>
+                            <p class="text-3xl font-bold total-amount">${total.toLocaleString()}</p>
+                            <p class="text-sm opacity-90">${this.currencies.find(c => c.code === this.state.data.currency)?.name}</p>
+                        </div>
+                        <button onclick="app.addExpense()" class="w-full bg-green-600 text-white py-3 rounded-lg font-medium">
+                            ➕ ${this.t('addExpense')}
+                        </button>
+                        ${this.state.data.expenses.map((item, idx) => {
+                            const cat = this.categories.find(c => c.id === item.category) || this.categories[5];
+                            return `
+                            <div class="bg-white rounded-lg p-4 shadow border border-gray-100">
+                                <div class="flex justify-between mb-3">
+                                    <div class="flex-1 grid grid-cols-2 gap-2">
+                                        <input type="date" value="${item.date}" onblur="app.updateExpense(${idx}, 'date', this.value)" class="border rounded px-2 py-1 text-sm">
+                                        <input type="time" value="${item.time}" onblur="app.updateExpense(${idx}, 'time', this.value)" class="border rounded px-2 py-1 text-sm">
+                                    </div>
+                                    <button onclick="app.deleteExpense(${idx})" class="text-red-500 ml-2">✕</button>
+                                </div>
+                                <select onchange="app.updateExpense(${idx}, 'category', this.value)" class="w-full border rounded px-3 py-2 mb-2 text-sm">
+                                    ${this.categories.map(c => `
+                                        <option value="${c.id}" ${c.id === item.category ? 'selected' : ''}>
+                                            ${c.icon} ${this.t('category' + c.id.charAt(0).toUpperCase() + c.id.slice(1))}
+                                        </option>
+                                    `).join('')}
+                                </select>
+                                <input type="text" value="${item.title}" onblur="app.updateExpense(${idx}, 'title', this.value)" placeholder="${this.t('expenseItem')}" class="w-full border rounded px-3 py-2 mb-2">
+                                <div class="flex gap-2">
+                                    <input type="number" value="${item.amount}" 
+                                        onfocus="if(this.value == 0 || this.value == '0') this.select()" 
+                                        oninput="app.updateExpense(${idx}, 'amount', this.value)" 
+                                        placeholder="${this.t('amount')}" 
+                                        class="flex-1 border rounded px-3 py-2">
+                                    <span class="self-center text-sm font-medium px-2 py-2 rounded" style="background: ${cat.color}20; color: ${cat.color}">
+                                        ${cat.icon}
+                                    </span>
+                                </div>
+                            </div>
+                        `}).join('')}
+                    </div>
+                `;
+            },
+
+            renderStats() {
+                const categoryTotals = {};
+                this.categories.forEach(cat => categoryTotals[cat.id] = 0);
+                
+                this.state.data.expenses.forEach(exp => {
+                    const cat = exp.category || 'other';
+                    categoryTotals[cat] += parseFloat(exp.amount) || 0;
+                });
+
+                const grandTotal = Object.values(categoryTotals).reduce((a,b) => a+b, 0);
+
+                return `
+                    <div class="space-y-4">
+                        <div class="bg-gradient-to-r from-purple-500 to-pink-600 rounded-xl p-6 text-white shadow-lg">
+                            <h2 class="text-xl font-bold mb-2">${this.t('category')} ${this.t('statistics')}</h2>
+                            <p class="text-3xl font-bold">${grandTotal.toLocaleString()}</p>
+                            <p class="text-sm opacity-90">${this.t('totalExpense')} (${this.state.data.currency})</p>
+                        </div>
+
+                        <div class="space-y-3">
+                            ${this.categories.map(cat => {
+                                const total = categoryTotals[cat.id];
+                                const percent = grandTotal > 0 ? (total / grandTotal * 100).toFixed(1) : 0;
+                                return `
+                                    <div class="bg-white rounded-lg p-4 shadow border border-gray-100">
+                                        <div class="flex items-center justify-between mb-2">
+                                            <div class="flex items-center gap-3">
+                                                <span class="text-3xl">${cat.icon}</span>
+                                                <div>
+                                                    <p class="font-medium text-gray-800">${this.t('category' + cat.id.charAt(0).toUpperCase() + cat.id.slice(1))}</p>
+                                                    <p class="text-xs text-gray-500">${this.state.data.expenses.filter(e => e.category === cat.id).length} ${this.t('schedule_count')}</p>
+                                                </div>
+                                            </div>
+                                            <div class="text-right">
+                                                <p class="text-xl font-bold text-gray-800">${total.toLocaleString()}</p>
+                                                <p class="text-sm" style="color: ${cat.color}">${percent}%</p>
+                                            </div>
+                                        </div>
+                                        <div class="w-full bg-gray-200 rounded-full h-2">
+                                            <div class="h-2 rounded-full" style="width: ${percent}%; background-color: ${cat.color}"></div>
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                `;
+            },
+
+            switchTab(tab) {
+                this.state.activeTab = tab;
+                this.render();
+            },
+
+            toggleLanguage() {
+                this.state.language = this.state.language === 'ko' ? 'th' : 'ko';
+                this.saveData();
+                this.render();
+            },
+
+            toggleDarkMode() {
+                this.state.darkMode = !this.state.darkMode;
+                if (this.state.darkMode) {
+                    document.body.classList.add('dark');
+                } else {
+                    document.body.classList.remove('dark');
+                }
+                this.saveData();
+                this.render(); // Re-render to update the root element class
+            },
+
+            editTitle() {
+                this.state.tempTitle = this.state.data.title;
+                this.state.editingTitle = true;
+                this.render();
+            },
+
+            saveTitle() {
+                this.state.data.title = document.getElementById('titleInput').value;
+                this.state.editingTitle = false;
+                this.saveData();
+                this.render();
+            },
+
+            updateDate(field, value) {
+                this.state.data[field] = value;
+                this.saveData();
+            },
+
+            addPhotos(event) {
+                const files = Array.from(event.target.files);
+                let loaded = 0;
+                files.forEach(file => {
+                    this.compressImage(file, (compressedUrl) => {
+                        this.state.data.photos.push({
+                            id: Date.now() + Math.random(),
+                            url: compressedUrl,
+                            description: '',
+                            date: new Date().toISOString()
+                        });
+                        loaded++;
+                        if (loaded === files.length) {
+                            this.saveData();
+                            this.render();
+                        }
+                    });
+                });
+            },
+
+            deletePhoto(idx) {
+                this.state.data.photos.splice(idx, 1);
+                this.saveData();
+                this.render();
+            },
+
+            updatePhotoDesc(idx, value) {
+                this.state.data.photos[idx].description = value;
+                this.saveData();
+            },
+
+            addSchedule() {
+                this.state.data.schedule.push({
+                    id: Date.now(),
+                    date: '',
+                    time: '',
+                    title: '',
+                    description: ''
+                });
+                this.saveData();
+                this.render();
+            },
+
+            updateSchedule(idx, field, value) {
+                this.state.data.schedule[idx][field] = value;
+                this.saveData();
+                if (field === 'date' || field === 'time') {
+                    setTimeout(() => this.render(), 100);
+                }
+            },
+
+            deleteSchedule(idx) {
+                this.state.data.schedule.splice(idx, 1);
+                this.saveData();
+                this.render();
+            },
+
+            addExpense() {
+                this.state.data.expenses.push({
+                    id: Date.now(),
+                    date: '',
+                    time: '',
+                    title: '',
+                    amount: 0,
+                    category: 'other'
+                });
+                this.saveData();
+                this.render();
+            },
+
+            updateExpense(idx, field, value) {
+                this.state.data.expenses[idx][field] = field === 'amount' ? parseFloat(value) || 0 : value;
+                this.saveData();
+                if (field === 'amount') {
+                    this.updateTotalDisplay();
+                } else if (field === 'date' || field === 'time' || field === 'category') {
+                    setTimeout(() => this.render(), 100);
+                }
+            },
+
+            updateTotalDisplay() {
+                const total = this.state.data.expenses.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
+                const totalElement = document.querySelector('.total-amount');
+                if (totalElement) {
+                    totalElement.textContent = total.toLocaleString();
+                }
+            },
+
+            deleteExpense(idx) {
+                this.state.data.expenses.splice(idx, 1);
+                this.saveData();
+                this.render();
+            },
+
+            updateCurrency(value) {
+                this.state.data.currency = value;
+                this.saveData();
+                this.render();
+            },
+
+            exportData() {
+                const dataStr = JSON.stringify(this.state.data, null, 2);
+                const blob = new Blob([dataStr], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `travel_${this.state.data.title}_${new Date().toISOString().split('T')[0]}.json`;
+                a.click();
+            },
+
+            importData(event) {
+                const file = event.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        try {
+                            this.state.data = JSON.parse(e.target.result);
+                            this.saveData();
+                            this.render();
+                            alert(this.t('dataImported'));
+                        } catch (error) {
+                            alert(this.t('importFailed'));
+                        }
+                    };
+                    reader.readAsText(file);
+                }
+            },
+
+            shareTrip() {
+                const total = this.state.data.expenses.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
+                const text = `${this.state.data.title}\n${this.t('period')}: ${this.state.data.startDate} ~ ${this.state.data.endDate}\n${this.t('photos')}: ${this.state.data.photos.length}\n${this.t('schedule')}: ${this.state.data.schedule.length}\n${this.t('totalExpense')}: ${total.toLocaleString()} ${this.state.data.currency}`;
+                
+                if (navigator.share) {
+                    navigator.share({
+                        title: this.state.data.title,
+                        text: text
+                    }).catch(err => console.log('Share error:', err));
+                } else {
+                    alert(this.t('shareText') + '\n\n' + text);
+                }
+            },
+
+            requestNotificationPermission() {
+                if ('Notification' in window && Notification.permission === 'default') {
+                    Notification.requestPermission();
+                }
+            },
+
+            scheduleNotification(title, date, time) {
+                if (!('Notification' in window)) {
+                    alert('This browser does not support notifications');
+                    return;
+                }
+
+                if (Notification.permission === 'granted') {
+                    const scheduleTime = new Date(`${date} ${time}`).getTime() - 3600000; // 1시간 전
+                    const now = Date.now();
+                    const timeout = scheduleTime - now;
+
+                    if (timeout > 0) {
+                        setTimeout(() => {
+                            new Notification('Travel Reminder', {
+                                body: `${title} in 1 hour!`,
+                                icon: '📅'
+                            });
+                        }, timeout);
+                        alert('Notification scheduled!');
+                    } else {
+                        alert('Schedule time has passed');
+                    }
+                } else {
+                    Notification.requestPermission().then(permission => {
+                        if (permission === 'granted') {
+                            this.scheduleNotification(title, date, time);
+                        }
+                    });
+                }
+            },
+
+            resetAll() {
+                if (confirm(this.t('resetConfirm'))) {
+                    this.state.data = {
+                        title: this.state.language === 'ko' ? '내 여행' : 'ทริปของฉัน',
+                        startDate: '',
+                        endDate: '',
+                        photos: [],
+                        schedule: [],
+                        expenses: [],
+                        currency: 'KRW'
+                    };
+                    this.saveData();
+                    this.render();
+                    alert(this.t('resetSuccess'));
+                }
+            }
+        };
+
+        app.init();
+    </script>
+</body>
+</html>
